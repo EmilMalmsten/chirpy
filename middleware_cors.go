@@ -13,6 +13,10 @@ func middlewareCors(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+		if r.URL.Path == "/" {
+			http.ServeFile(w, r, "index.html")
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }
