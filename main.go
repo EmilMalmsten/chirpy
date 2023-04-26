@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -22,7 +21,6 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 		w.WriteHeader(500)
 		return
 	}
-	fmt.Println(string(dat))
 	w.WriteHeader(code)
 	w.Write(dat)
 }
@@ -62,7 +60,8 @@ func main() {
 
 	apiRouter := chi.NewRouter()
 	apiRouter.Get("/healthz", readinessHandler)
-	apiRouter.Post("/validate_chirp", chirpValidationHandler)
+	apiRouter.Post("/chirps", postChirp)
+	apiRouter.Get("/chirps", getChirps)
 	router.Mount("/api", apiRouter)
 
 	adminRouter := chi.NewRouter()

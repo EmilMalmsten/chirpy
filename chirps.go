@@ -2,10 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
-func chirpValidationHandler(w http.ResponseWriter, r *http.Request) {
+func postChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body string `json:"body"`
 	}
@@ -35,4 +36,8 @@ func chirpValidationHandler(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJSON(w, http.StatusOK, returnVals{CleanedBody: cleanChirp})
 
+}
+
+func getChirps(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "Hello")
 }
