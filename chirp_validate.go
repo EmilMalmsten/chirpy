@@ -11,7 +11,7 @@ func chirpValidationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type returnVals struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -31,6 +31,8 @@ func chirpValidationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, returnVals{Valid: true})
+	cleanChirp := filterProfanity(params.Body)
+
+	respondWithJSON(w, http.StatusOK, returnVals{CleanedBody: cleanChirp})
 
 }

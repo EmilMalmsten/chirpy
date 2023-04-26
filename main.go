@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi"
 )
@@ -20,6 +22,7 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 		w.WriteHeader(500)
 		return
 	}
+	fmt.Println(string(dat))
 	w.WriteHeader(code)
 	w.Write(dat)
 }
@@ -34,6 +37,17 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 	respondWithJSON(w, code, errorResponse{
 		Error: msg,
 	})
+}
+
+func filterProfanity(message string) string {
+	message = strings.ToLower(message)
+	bannedWords := []string{"kerfuffle", "sharbert", "fornax"}
+	const replacement = "****"
+
+	for _, word := range bannedWords {
+		message = strings.Replace(message, word, replacement, -1)
+	}
+	return message
 }
 
 func main() {
