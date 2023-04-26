@@ -2,10 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/emilmalmsten/chirpy/internal/jsonDB"
 	"github.com/go-chi/chi"
 )
 
@@ -75,7 +79,20 @@ func main() {
 		Handler: corsMux,
 	}
 
-	err := server.ListenAndServe()
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exPath := filepath.Dir(ex)
+
+	db, err := jsonDB.NewDB(exPath + "/db.json")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(db)
+
+	err = server.ListenAndServe()
 	if err != nil {
 		panic(err)
 	}
