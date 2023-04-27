@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -57,6 +56,20 @@ func main() {
 		fileserverHits: 0,
 	}
 
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exPath := filepath.Dir(ex)
+
+	db, err := jsonDB.NewDB(exPath + "/db.json")
+	if err != nil {
+		panic(err)
+	}
+
+	postChirpHandler := postChirp(db)
+	getChirpsHandler := getChirps(db)
+
 	router := chi.NewRouter()
 
 	fileServer := apiCfg.middlewareMetricsInc(http.FileServer(http.Dir(".")))
@@ -64,8 +77,8 @@ func main() {
 
 	apiRouter := chi.NewRouter()
 	apiRouter.Get("/healthz", readinessHandler)
-	apiRouter.Post("/chirps", postChirp)
-	apiRouter.Get("/chirps", getChirps)
+	apiRouter.Post("/chirps", postChirpHandler)
+	apiRouter.Get("/chirps", getChirpsHandler)
 	router.Mount("/api", apiRouter)
 
 	adminRouter := chi.NewRouter()
@@ -78,19 +91,6 @@ func main() {
 		Addr:    "localhost:8080",
 		Handler: corsMux,
 	}
-
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	exPath := filepath.Dir(ex)
-
-	db, err := jsonDB.NewDB(exPath + "/db.json")
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(db)
 
 	err = server.ListenAndServe()
 	if err != nil {
