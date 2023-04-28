@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/emilmalmsten/chirpy/internal/jsonDB"
 )
@@ -51,6 +52,10 @@ func getChirps(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
 			respondWithError(w, http.StatusInternalServerError, "Failed to fetch chirps")
 			return
 		}
+
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].Id < chirps[j].Id
+		})
 
 		respondWithJSON(w, http.StatusOK, chirps)
 
