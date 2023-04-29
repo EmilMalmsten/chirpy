@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 
 	"github.com/emilmalmsten/chirpy/internal/jsonDB"
+	"github.com/go-chi/chi"
 )
 
 func postChirp(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
@@ -41,11 +43,11 @@ func postChirp(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		respondWithJSON(w, http.StatusOK, chirp)
+		respondWithJSON(w, http.StatusCreated, chirp)
 	}
 }
 
-func getChirps(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
+func getAllChirps(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		chirps, err := db.GetChirps()
 		if err != nil {
@@ -58,6 +60,27 @@ func getChirps(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
 		})
 
 		respondWithJSON(w, http.StatusOK, chirps)
+
+	}
+}
+
+func getChirp(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		chirpIdString := chi.URLParam(r, "chirpID")
+		chirpID, err := strconv.Atoi(chirpIdString)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "Invalid chirp ID")
+			return
+		}
+
+		chirp, err := db.GetChirp(chirpID)
+		if err != nil {
+			respondWithError(w, http.StatusNotFound, "Chirp not found")
+			return
+		}
+
+		respondWithJSON(w, http.StatusOK, chirp)
 
 	}
 }

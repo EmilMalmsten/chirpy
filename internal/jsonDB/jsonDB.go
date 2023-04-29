@@ -14,11 +14,17 @@ type DB struct {
 
 type DBStructure struct {
 	Chirps map[int]Chirp `json:"chirps"`
+	Users  map[int]User  `json:"user"`
 }
 
 type Chirp struct {
 	Id   int    `json:"id"`
 	Body string `json:"body"`
+}
+
+type User struct {
+	Id    int    `json:"id"`
+	Email string `json:"email"`
 }
 
 func NewDB(path string) (*DB, error) {
@@ -53,7 +59,6 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	}
 
 	ds.Chirps[chirp.Id] = chirp
-	fmt.Println(ds.Chirps)
 
 	err = db.writeDB(ds)
 	if err != nil {
@@ -61,6 +66,35 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	}
 
 	return chirp, nil
+}
+
+// CreateChirp creates a new chirp and saves it to disk
+func (db *DB) CreateUser(email string) (User, error) {
+	ds, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	highestID := 0
+	for _, user := range ds.Users {
+		if user.Id > highestID {
+			highestID = user.Id
+		}
+	}
+
+	user := User{
+		Id:    highestID + 1,
+		Email: email,
+	}
+
+	ds.Users[user.Id] = user
+
+	err = db.writeDB(ds)
+	if err != nil {
+		return user, fmt.Errorf("failed to write to database: %s", err)
+	}
+
+	return user, nil
 }
 
 // loadDB reads the database file into memory
@@ -88,6 +122,7 @@ func (db *DB) loadDB() (DBStructure, error) {
 	ds := DBStructure{}
 	if len(bytes) == 0 {
 		ds.Chirps = map[int]Chirp{}
+		ds.Users = map[int]User{}
 		return ds, nil
 	}
 
@@ -126,8 +161,6 @@ func (db *DB) writeDB(dbStructure DBStructure) error {
 
 // GetChirps returns all chirps in the database
 func (db *DB) GetChirps() ([]Chirp, error) {
-	db.mux.RLock()
-	defer db.mux.RUnlock()
 	ds, err := db.loadDB()
 	if err != nil {
 		return nil, fmt.Errorf("error loading the database: %s", err)
@@ -139,4 +172,19 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	}
 
 	return chirps, nil
+}
+
+// GetChirp returns chirp with a specific ID
+func (db *DB) GetChirp(id int) (Chirp, error) {
+	ds, err := db.loadDB()
+	if err != nil {
+		return Chirp{}, fmt.Errorf("error loading the database: %s", err)
+	}
+
+	chirp, ok := ds.Chirps[id]
+	if !ok {
+		return Chirp{}, fmt.Errorf("chirp not found: %s", err)
+	}
+
+	return chirp, nil
 }

@@ -41,7 +41,7 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 }
 
 func filterProfanity(message string) string {
-	message = strings.ToLower(message)
+	//message = strings.ToLower(message)
 	bannedWords := []string{"kerfuffle", "sharbert", "fornax"}
 	const replacement = "****"
 
@@ -68,7 +68,9 @@ func main() {
 	}
 
 	postChirpHandler := postChirp(db)
-	getChirpsHandler := getChirps(db)
+	getAllChirpsHandler := getAllChirps(db)
+	getChirpHandler := getChirp(db)
+	postUserHandler := postUser(db)
 
 	router := chi.NewRouter()
 
@@ -77,8 +79,12 @@ func main() {
 
 	apiRouter := chi.NewRouter()
 	apiRouter.Get("/healthz", readinessHandler)
+
 	apiRouter.Post("/chirps", postChirpHandler)
-	apiRouter.Get("/chirps", getChirpsHandler)
+	apiRouter.Get("/chirps", getAllChirpsHandler)
+	apiRouter.Get("/chirps/{chirpID}", getChirpHandler)
+
+	apiRouter.Post("/users", postUserHandler)
 	router.Mount("/api", apiRouter)
 
 	adminRouter := chi.NewRouter()
