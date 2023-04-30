@@ -10,11 +10,13 @@ import (
 
 	"github.com/emilmalmsten/chirpy/internal/jsonDB"
 	"github.com/go-chi/chi"
+	"github.com/joho/godotenv"
 )
 
 type apiConfig struct {
 	fileserverHits int
 	DB             *jsonDB.DB
+	jwtSecret      string
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
@@ -53,6 +55,8 @@ func filterProfanity(message string) string {
 }
 
 func main() {
+	godotenv.Load()
+	jwtSecret := os.Getenv("JWT_SECRET")
 	ex, err := os.Executable()
 	if err != nil {
 		panic(err)
@@ -67,6 +71,7 @@ func main() {
 	apiCfg := apiConfig{
 		fileserverHits: 0,
 		DB:             db,
+		jwtSecret:      jwtSecret,
 	}
 
 	router := chi.NewRouter()

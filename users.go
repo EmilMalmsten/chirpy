@@ -54,8 +54,9 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 
 func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
 	w.Header().Set("Content-Type", "application/json")
 
@@ -83,13 +84,21 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	token, err := auth.CreateToken(user.Id, []byte(cfg.jwtSecret), params.ExpiresInSeconds)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "jwt token error")
+		return
+	}
+
 	type returnUser struct {
 		Id    int    `json:"id"`
 		Email string `json:"email"`
+		Token string `json:"token"`
 	}
 
 	respondWithJSON(w, http.StatusOK, returnUser{
 		Id:    user.Id,
 		Email: user.Email,
+		Token: token,
 	})
 }
