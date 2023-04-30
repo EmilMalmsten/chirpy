@@ -17,8 +17,6 @@ func postChirp(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
 			Body string `json:"body"`
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-
 		decoder := json.NewDecoder(r.Body)
 		params := parameters{}
 		err := decoder.Decode(&params)

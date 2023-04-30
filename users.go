@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 
+	"github.com/emilmalmsten/chirpy/internal/auth"
 	"github.com/emilmalmsten/chirpy/internal/jsonDB"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func postUser(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
@@ -16,7 +15,6 @@ func postUser(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
 			Email    string `json:"email"`
 			Password string `json:"password"`
 		}
-
 		w.Header().Set("Content-Type", "application/json")
 
 		decoder := json.NewDecoder(r.Body)
@@ -26,22 +24,76 @@ func postUser(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
 			respondWithError(w, http.StatusInternalServerError, "couldn't decode parameters")
 			return
 		}
-		password := []byte(params.Password)
 
-		passwordHash, err := bcrypt.GenerateFromPassword(password, 10)
+		storedHash, err := auth.HashPassword(params.Password)
 		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, "failed to create user")
+			respondWithError(w, http.StatusInternalServerError, "Couldn't hash password")
+			return
 		}
 
-		passwordHashString := base64.StdEncoding.EncodeToString(passwordHash)
-
-		returnUser, err := db.CreateUser(params.Email, passwordHashString)
+		user, err := db.CreateUser(params.Email, storedHash)
 		if err != nil {
-			fmt.Printf("err with creating user: %s", err)
+			if errors.Is(err, jsonDB.ErrAlreadyExists) {
+				respondWithError(w, http.StatusConflict, "user already exists")
+				return
+			}
 			respondWithError(w, http.StatusInternalServerError, "failed to create user")
 			return
 		}
 
-		respondWithJSON(w, http.StatusCreated, returnUser)
+		type returnUser struct {
+			Id    int    `json:"id"`
+			Email string `json:"email"`
+		}
+
+		respondWithJSON(w, http.StatusCreated, returnUser{
+			Id:    user.Id,
+			Email: user.Email,
+		})
+	}
+}
+
+func postLogin(db *jsonDB.DB) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		type parameters struct {
+			Email    string `json:"email"`
+			Password string `json:"password"`
+		}
+		w.Header().Set("Content-Type", "application/json")
+
+		decoder := json.NewDecoder(r.Body)
+		params := parameters{}
+		err := decoder.Decode(&params)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "couldn't decode parameters")
+			return
+		}
+
+		user, err := db.GetUserByEmail(params.Email)
+		if err != nil {
+			if errors.Is(err, jsonDB.ErrDoesNotExists) {
+				respondWithError(w, http.StatusNotFound, "user does not exist")
+				return
+			}
+			respondWithError(w, http.StatusInternalServerError, "error retrieving user")
+			return
+		}
+
+		err = auth.CheckPasswordHash(params.Password, user.Password)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, "wrong password")
+			return
+		}
+
+		type returnUser struct {
+			Id    int    `json:"id"`
+			Email string `json:"email"`
+		}
+
+		respondWithJSON(w, http.StatusOK, returnUser{
+			Id:    user.Id,
+			Email: user.Email,
+		})
+
 	}
 }

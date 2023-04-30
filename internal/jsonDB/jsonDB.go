@@ -2,10 +2,14 @@ package jsonDB
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
 )
+
+var ErrAlreadyExists = errors.New("already exists")
+var ErrDoesNotExists = errors.New("does not exist")
 
 type DB struct {
 	path string
@@ -25,7 +29,7 @@ type Chirp struct {
 type User struct {
 	Id       int    `json:"id"`
 	Email    string `json:"email"`
-	password string
+	Password string
 }
 
 func NewDB(path string) (*DB, error) {
@@ -73,11 +77,14 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 func (db *DB) CreateUser(email string, password string) (User, error) {
 	ds, err := db.loadDB()
 	if err != nil {
-		return User{}, err
+		return User{}, fmt.Errorf("failed to load database: %s", err)
 	}
 
 	highestID := 0
 	for _, user := range ds.Users {
+		if email == user.Email {
+			return User{}, ErrAlreadyExists
+		}
 		if user.Id > highestID {
 			highestID = user.Id
 		}
@@ -86,7 +93,7 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 	user := User{
 		Id:       highestID + 1,
 		Email:    email,
-		password: password,
+		Password: password,
 	}
 
 	ds.Users[user.Id] = user
@@ -97,6 +104,23 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 	}
 
 	return user, nil
+}
+
+func (db *DB) GetUserByEmail(email string) (User, error) {
+	ds, err := db.loadDB()
+	if err != nil {
+		return User{}, fmt.Errorf("failed to load database: %s", err)
+	}
+
+	for _, user := range ds.Users {
+		if email == user.Email {
+			return user, nil
+		}
+	}
+
+	// user not found
+	return User{}, ErrDoesNotExists
+
 }
 
 // loadDB reads the database file into memory
