@@ -14,6 +14,7 @@ import (
 
 type apiConfig struct {
 	fileserverHits int
+	DB             *jsonDB.DB
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
@@ -52,10 +53,6 @@ func filterProfanity(message string) string {
 }
 
 func main() {
-	apiCfg := apiConfig{
-		fileserverHits: 0,
-	}
-
 	ex, err := os.Executable()
 	if err != nil {
 		panic(err)
@@ -67,11 +64,10 @@ func main() {
 		panic(err)
 	}
 
-	postChirpHandler := postChirp(db)
-	getAllChirpsHandler := getAllChirps(db)
-	getChirpHandler := getChirp(db)
-	postUserHandler := postUser(db)
-	postLoginHandler := postLogin(db)
+	apiCfg := apiConfig{
+		fileserverHits: 0,
+		DB:             db,
+	}
 
 	router := chi.NewRouter()
 
@@ -81,12 +77,12 @@ func main() {
 	apiRouter := chi.NewRouter()
 	apiRouter.Get("/healthz", readinessHandler)
 
-	apiRouter.Post("/chirps", postChirpHandler)
-	apiRouter.Get("/chirps", getAllChirpsHandler)
-	apiRouter.Get("/chirps/{chirpID}", getChirpHandler)
+	apiRouter.Post("/chirps", apiCfg.handlerPostChirp)
+	apiRouter.Get("/chirps", apiCfg.handlerGetAllChirps)
+	apiRouter.Get("/chirps/{chirpID}", apiCfg.handlerGetChirp)
 
-	apiRouter.Post("/users", postUserHandler)
-	apiRouter.Post("/login", postLoginHandler)
+	apiRouter.Post("/users", apiCfg.handlerUsersCreate)
+	apiRouter.Post("/login", apiCfg.handlerUsersLogin)
 	router.Mount("/api", apiRouter)
 
 	adminRouter := chi.NewRouter()
