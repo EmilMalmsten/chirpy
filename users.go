@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/emilmalmsten/chirpy/internal/auth"
 	"github.com/emilmalmsten/chirpy/internal/jsonDB"
@@ -101,4 +102,64 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 		Email: user.Email,
 		Token: token,
 	})
+}
+
+func (cfg *apiConfig) handlerUsersUpdate(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		if errors.Is(err, jsonDB.ErrAlreadyExists) {
+			respondWithError(w, http.StatusInternalServerError, "auth header missing")
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, "malformed auth header")
+		return
+	}
+
+	userId, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid jwt token")
+		return
+	}
+
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't decode parameters")
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't hash password")
+		return
+	}
+
+	userIDInt, err := strconv.Atoi(userId)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't parse user ID")
+		return
+	}
+
+	user, err := cfg.DB.UpdateUser(userIDInt, params.Email, hashedPassword)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "failed to update user info")
+		return
+	}
+
+	type returnUser struct {
+		Id    int    `json:"id"`
+		Email string `json:"email"`
+	}
+
+	respondWithJSON(w, http.StatusOK, returnUser{
+		Id:    user.Id,
+		Email: user.Email,
+	})
+
 }

@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -12,6 +14,11 @@ import (
 )
 
 var ErrDoesNotMatch = errors.New("does not match")
+var ErrNoAuthHeaderIncluded = errors.New("not auth header included in request")
+
+type Claims struct {
+	jwt.RegisteredClaims
+}
 
 func HashPassword(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -51,10 +58,6 @@ func CreateToken(userId int, secretKey []byte, expiresInSeconds int) (string, er
 
 	jwtExpTime := jwt.NewNumericDate(expTime)
 
-	type Claims struct {
-		jwt.RegisteredClaims
-	}
-
 	// Create claims with multiple fields populated
 	claims := Claims{
 		jwt.RegisteredClaims{
@@ -74,4 +77,46 @@ func CreateToken(userId int, secretKey []byte, expiresInSeconds int) (string, er
 
 	return ss, nil
 
+}
+
+// GetBearerToken -
+func GetBearerToken(headers http.Header) (string, error) {
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", ErrNoAuthHeaderIncluded
+	}
+	splitAuth := strings.Split(authHeader, " ")
+	if len(splitAuth) < 2 || splitAuth[0] != "Bearer" {
+		return "", errors.New("malformed authorization header")
+	}
+
+	return splitAuth[1], nil
+}
+
+func ValidateJWT(tokenString, tokenSecret string) (string, error) {
+	claimsStruct := jwt.RegisteredClaims{}
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&claimsStruct,
+		func(token *jwt.Token) (interface{}, error) { return []byte(tokenSecret), nil },
+	)
+	if err != nil {
+		return "", err
+	}
+
+	userIDString, err := token.Claims.GetSubject()
+	if err != nil {
+		return "", err
+	}
+
+	expiresAt, err := token.Claims.GetExpirationTime()
+	if err != nil {
+		return "", err
+	}
+
+	if expiresAt.Before(time.Now().UTC()) {
+		return "", errors.New("JWT is expired")
+	}
+
+	return userIDString, nil
 }
