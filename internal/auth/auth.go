@@ -13,12 +13,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var ErrDoesNotMatch = errors.New("does not match")
-var ErrNoAuthHeaderIncluded = errors.New("not auth header included in request")
-
 type Claims struct {
 	jwt.RegisteredClaims
 }
+
+type TokenType string
+
+const (
+	TokenTypeAccess  TokenType = "chirpy-access"
+	TokenTypeRefresh TokenType = "chirpy-refresh"
+)
+
+var ErrDoesNotMatch = errors.New("does not match")
+var ErrNoAuthHeaderIncluded = errors.New("not auth header included in request")
 
 func HashPassword(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -45,26 +52,13 @@ func CheckPasswordHash(password, storedHash string) error {
 	}
 }
 
-func CreateToken(userId int, secretKey []byte, expiresInSeconds int) (string, error) {
+func CreateJWT(userId int, secretKey []byte, expiresIn time.Duration, tokenType TokenType) (string, error) {
 
-	// Determine the expiration time
-	var expTime time.Time
-	if expiresInSeconds <= 0 {
-		expiresInSeconds = 24 * 60 * 60 // default: 24 hours
-	} else if expiresInSeconds > 24*60*60 {
-		expiresInSeconds = 24 * 60 * 60 // max: 24 hours
-	}
-	expTime = time.Now().Add(time.Duration(expiresInSeconds) * time.Second)
-
-	jwtExpTime := jwt.NewNumericDate(expTime)
-
-	// Create claims with multiple fields populated
 	claims := Claims{
 		jwt.RegisteredClaims{
-			// A usual scenario is to set the expiration time relative to the current time
-			ExpiresAt: jwtExpTime,
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "chirpy",
+			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(expiresIn)),
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+			Issuer:    string(tokenType),
 			Subject:   strconv.Itoa(userId),
 		},
 	}
@@ -76,7 +70,6 @@ func CreateToken(userId int, secretKey []byte, expiresInSeconds int) (string, er
 	}
 
 	return ss, nil
-
 }
 
 // GetBearerToken -
@@ -114,9 +107,68 @@ func ValidateJWT(tokenString, tokenSecret string) (string, error) {
 		return "", err
 	}
 
+	issuer, err := token.Claims.GetIssuer()
+	if err != nil {
+		return "", err
+	}
+	if issuer != string(TokenTypeAccess) {
+		return "", errors.New("invalid issuer")
+	}
+
 	if expiresAt.Before(time.Now().UTC()) {
 		return "", errors.New("JWT is expired")
 	}
 
 	return userIDString, nil
+}
+
+func RefreshToken(tokenString, tokenSecret string) (string, error) {
+	claimsStruct := jwt.RegisteredClaims{}
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&claimsStruct,
+		func(token *jwt.Token) (interface{}, error) { return []byte(tokenSecret), nil },
+	)
+	if err != nil {
+		return "", err
+	}
+
+	userIDString, err := token.Claims.GetSubject()
+	if err != nil {
+		return "", err
+	}
+
+	expiresAt, err := token.Claims.GetExpirationTime()
+	if err != nil {
+		return "", err
+	}
+
+	issuer, err := token.Claims.GetIssuer()
+	if err != nil {
+		return "", err
+	}
+	if issuer != string(TokenTypeRefresh) {
+		return "", errors.New("invalid issuer")
+	}
+
+	if expiresAt.Before(time.Now().UTC()) {
+		return "", errors.New("JWT is expired")
+	}
+
+	userID, err := strconv.Atoi(userIDString)
+	if err != nil {
+		return "", err
+	}
+
+	newToken, err := CreateJWT(
+		userID,
+		[]byte(tokenSecret),
+		time.Hour,
+		TokenTypeAccess,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return newToken, nil
 }

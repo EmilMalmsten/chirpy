@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 )
 
 var ErrAlreadyExists = errors.New("already exists")
@@ -17,8 +18,9 @@ type DB struct {
 }
 
 type DBStructure struct {
-	Chirps map[int]Chirp `json:"chirps"`
-	Users  map[int]User  `json:"user"`
+	Chirps      map[int]Chirp         `json:"chirps"`
+	Users       map[int]User          `json:"user"`
+	Revocations map[string]Revocation `json:"revocation"`
 }
 
 type Chirp struct {
@@ -30,6 +32,11 @@ type User struct {
 	Id       int    `json:"id"`
 	Email    string `json:"email"`
 	Password string
+}
+
+type Revocation struct {
+	Token     string    `json:"token"`
+	RevokedAt time.Time `json:"revoked_at"`
 }
 
 func NewDB(path string) (*DB, error) {

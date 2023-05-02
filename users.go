@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/emilmalmsten/chirpy/internal/auth"
 	"github.com/emilmalmsten/chirpy/internal/jsonDB"
@@ -59,7 +60,13 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 		Password         string `json:"password"`
 		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
-	w.Header().Set("Content-Type", "application/json")
+
+	type response struct {
+		Id           int    `json:"id"`
+		Email        string `json:"email"`
+		Token        string `json:"token"`
+		RefreshToken string `json:"refresh_token"`
+	}
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
@@ -85,22 +92,23 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	token, err := auth.CreateToken(user.Id, []byte(cfg.jwtSecret), params.ExpiresInSeconds)
+	accessToken, err := auth.CreateJWT(user.Id, []byte(cfg.jwtSecret), time.Hour, auth.TokenTypeAccess)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "jwt token error")
+		respondWithError(w, http.StatusInternalServerError, "jwt accessToken error")
 		return
 	}
 
-	type returnUser struct {
-		Id    int    `json:"id"`
-		Email string `json:"email"`
-		Token string `json:"token"`
+	refreshToken, err := auth.CreateJWT(user.Id, []byte(cfg.jwtSecret), time.Hour*24*60, auth.TokenTypeAccess)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "jwt refreshToken error")
+		return
 	}
 
-	respondWithJSON(w, http.StatusOK, returnUser{
-		Id:    user.Id,
-		Email: user.Email,
-		Token: token,
+	respondWithJSON(w, http.StatusOK, response{
+		Id:           user.Id,
+		Email:        user.Email,
+		Token:        accessToken,
+		RefreshToken: refreshToken,
 	})
 }
 
