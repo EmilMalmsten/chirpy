@@ -2,11 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
 
+	"github.com/emilmalmsten/chirpy/internal/auth"
+	"github.com/emilmalmsten/chirpy/internal/jsonDB"
 	"github.com/go-chi/chi"
 )
 
@@ -15,9 +18,31 @@ func (cfg apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 		Body string `json:"body"`
 	}
 
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		if errors.Is(err, jsonDB.ErrAlreadyExists) {
+			respondWithError(w, http.StatusInternalServerError, "auth header missing")
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, "malformed auth header")
+		return
+	}
+
+	userId, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid jwt token")
+		return
+	}
+
+	userIDInt, err := strconv.Atoi(userId)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't parse user ID")
+		return
+	}
+
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters")
 		return
@@ -32,7 +57,7 @@ func (cfg apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 
 	cleanChirp := filterProfanity(params.Body)
 
-	chirp, err := cfg.DB.CreateChirp(cleanChirp)
+	chirp, err := cfg.DB.CreateChirp(cleanChirp, userIDInt)
 	if err != nil {
 		fmt.Printf("err with create chirp: %s", err)
 		respondWithError(w, http.StatusInternalServerError, "Failed to create Chirp")

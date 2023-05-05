@@ -3,7 +3,7 @@ package jsonDB
 import "fmt"
 
 // CreateChirp creates a new chirp and saves it to disk
-func (db *DB) CreateChirp(body string) (Chirp, error) {
+func (db *DB) CreateChirp(body string, author_id int) (Chirp, error) {
 	ds, err := db.loadDB()
 	if err != nil {
 		return Chirp{}, err
@@ -17,8 +17,9 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	}
 
 	chirp := Chirp{
-		Id:   highestID + 1,
-		Body: body,
+		Id:       highestID + 1,
+		Body:     body,
+		AuthorId: author_id,
 	}
 
 	ds.Chirps[chirp.Id] = chirp
