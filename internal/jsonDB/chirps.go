@@ -32,6 +32,31 @@ func (db *DB) CreateChirp(body string, author_id int) (Chirp, error) {
 	return chirp, nil
 }
 
+func (db *DB) DeleteChirp(chirp_id, user_id int) error {
+	ds, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	_, ok := ds.Chirps[chirp_id]
+	if !ok {
+		return ErrDoesNotExists
+	}
+
+	if ds.Chirps[chirp_id].AuthorId != user_id {
+		return ErrNotAuthorized
+	}
+
+	delete(ds.Chirps, chirp_id)
+
+	err = db.writeDB(ds)
+	if err != nil {
+		return fmt.Errorf("failed to write to database: %s", err)
+	}
+
+	return nil
+}
+
 // GetChirps returns all chirps in the database
 func (db *DB) GetChirps() ([]Chirp, error) {
 	ds, err := db.loadDB()

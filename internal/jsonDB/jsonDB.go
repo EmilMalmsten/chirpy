@@ -11,6 +11,7 @@ import (
 
 var ErrAlreadyExists = errors.New("already exists")
 var ErrDoesNotExists = errors.New("does not exist")
+var ErrNotAuthorized = errors.New("not authorized")
 
 type DB struct {
 	path string

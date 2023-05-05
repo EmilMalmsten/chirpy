@@ -99,3 +99,54 @@ func (cfg apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, chirp)
 
 }
+
+func (cfg apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		if errors.Is(err, jsonDB.ErrAlreadyExists) {
+			respondWithError(w, http.StatusInternalServerError, "auth header missing")
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, "malformed auth header")
+		return
+	}
+
+	userId, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid jwt token")
+		return
+	}
+
+	userIDInt, err := strconv.Atoi(userId)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't parse user ID")
+		return
+	}
+
+	chirpId := chi.URLParam(r, "chirpID")
+	chirpIDInt, err := strconv.Atoi(chirpId)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid chirp ID")
+		return
+	}
+
+	err = cfg.DB.DeleteChirp(chirpIDInt, userIDInt)
+	if err != nil {
+		if errors.Is(err, jsonDB.ErrDoesNotExists) {
+			respondWithError(w, http.StatusNotFound, "chirp not found")
+			return
+		} else if errors.Is(err, jsonDB.ErrNotAuthorized) {
+			respondWithError(w, http.StatusForbidden, "unauthorized to delete chirp")
+			return
+		} else {
+			respondWithError(w, http.StatusInternalServerError, "failed to delete chirp")
+			return
+		}
+	}
+
+	type response struct {
+		Body string `json:"body"`
+	}
+
+	respondWithJSON(w, http.StatusOK, response{})
+}
