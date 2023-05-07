@@ -44,14 +44,14 @@ func (cfg apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 	params := parameters{}
 	err = decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters")
+		respondWithError(w, http.StatusInternalServerError, "couldn't decode parameters")
 		return
 	}
 
 	const maxChirpLength = 140
 
 	if len(params.Body) > maxChirpLength {
-		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
+		respondWithError(w, http.StatusBadRequest, "chirp is too long")
 		return
 	}
 
@@ -60,7 +60,7 @@ func (cfg apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 	chirp, err := cfg.DB.CreateChirp(cleanChirp, userIDInt)
 	if err != nil {
 		fmt.Printf("err with create chirp: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "Failed to create Chirp")
+		respondWithError(w, http.StatusInternalServerError, "failed to create Chirp")
 		return
 	}
 
@@ -68,10 +68,26 @@ func (cfg apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
-	chirps, err := cfg.DB.GetChirps()
+	dbChirps, err := cfg.DB.GetChirps()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Failed to fetch chirps")
+		respondWithError(w, http.StatusInternalServerError, "failed to fetch chirps")
 		return
+	}
+
+	authorId := -1
+	authorIdString := r.URL.Query().Get("author_id")
+	if authorIdString != "" {
+		authorId, err = strconv.Atoi(authorIdString)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "invalid author id")
+		}
+	}
+
+	chirps := []jsonDB.Chirp{}
+	for _, chirp := range dbChirps {
+		if chirp.AuthorId == authorId {
+			chirps = append(chirps, chirp)
+		}
 	}
 
 	sort.Slice(chirps, func(i, j int) bool {
@@ -86,13 +102,13 @@ func (cfg apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 	chirpIdString := chi.URLParam(r, "chirpID")
 	chirpID, err := strconv.Atoi(chirpIdString)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid chirp ID")
+		respondWithError(w, http.StatusBadRequest, "invalid chirp ID")
 		return
 	}
 
 	chirp, err := cfg.DB.GetChirp(chirpID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "Chirp not found")
+		respondWithError(w, http.StatusNotFound, "chirp not found")
 		return
 	}
 
@@ -126,7 +142,7 @@ func (cfg apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request) 
 	chirpId := chi.URLParam(r, "chirpID")
 	chirpIDInt, err := strconv.Atoi(chirpId)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid chirp ID")
+		respondWithError(w, http.StatusBadRequest, "invalid chirp ID")
 		return
 	}
 
