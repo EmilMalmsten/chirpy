@@ -16,7 +16,6 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-	w.Header().Set("Content-Type", "application/json")
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
