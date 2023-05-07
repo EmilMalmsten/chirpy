@@ -67,7 +67,7 @@ func (cfg apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, chirp)
 }
 
-func (cfg apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
+func (cfg apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	dbChirps, err := cfg.DB.GetChirps()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "failed to fetch chirps")
@@ -83,21 +83,31 @@ func (cfg apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	sortBy := "asc"
+	sortByString := r.URL.Query().Get("sort")
+	if sortByString == "desc" {
+		sortBy = "desc"
+	}
+
 	chirps := []jsonDB.Chirp{}
 	for _, chirp := range dbChirps {
-		if chirp.AuthorId == authorId {
-			chirps = append(chirps, chirp)
+		if authorId != -1 && chirp.AuthorId != authorId {
+			continue
 		}
+		chirps = append(chirps, chirp)
 	}
 
 	sort.Slice(chirps, func(i, j int) bool {
+		if sortBy == "desc" {
+			return chirps[i].Id > chirps[j].Id
+		}
 		return chirps[i].Id < chirps[j].Id
 	})
 
 	respondWithJSON(w, http.StatusOK, chirps)
 }
 
-func (cfg apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
+func (cfg apiConfig) handlerGetChirpById(w http.ResponseWriter, r *http.Request) {
 
 	chirpIdString := chi.URLParam(r, "chirpID")
 	chirpID, err := strconv.Atoi(chirpIdString)
