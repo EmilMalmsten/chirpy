@@ -43,13 +43,15 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 	}
 
 	type returnUser struct {
-		Id    int    `json:"id"`
-		Email string `json:"email"`
+		Id            int    `json:"id"`
+		Email         string `json:"email"`
+		Is_chirpy_red bool   `json:"is_chirpy_red"`
 	}
 
 	respondWithJSON(w, http.StatusCreated, returnUser{
-		Id:    user.Id,
-		Email: user.Email,
+		Id:            user.Id,
+		Email:         user.Email,
+		Is_chirpy_red: false,
 	})
 
 }
@@ -62,10 +64,11 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	}
 
 	type response struct {
-		Id           int    `json:"id"`
-		Email        string `json:"email"`
-		Token        string `json:"token"`
-		RefreshToken string `json:"refresh_token"`
+		Id            int    `json:"id"`
+		Email         string `json:"email"`
+		Is_chirpy_red bool   `json:"is_chirpy_red"`
+		Token         string `json:"token"`
+		RefreshToken  string `json:"refresh_token"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -105,10 +108,11 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	}
 
 	respondWithJSON(w, http.StatusOK, response{
-		Id:           user.Id,
-		Email:        user.Email,
-		Token:        accessToken,
-		RefreshToken: refreshToken,
+		Id:            user.Id,
+		Email:         user.Email,
+		Is_chirpy_red: user.Is_chirpy_red,
+		Token:         accessToken,
+		RefreshToken:  refreshToken,
 	})
 }
 
@@ -161,13 +165,59 @@ func (cfg *apiConfig) handlerUsersUpdate(w http.ResponseWriter, r *http.Request)
 	}
 
 	type returnUser struct {
-		Id    int    `json:"id"`
-		Email string `json:"email"`
+		Id            int    `json:"id"`
+		Email         string `json:"email"`
+		Is_chirpy_red bool   `json:"is_chirpy_red"`
 	}
 
 	respondWithJSON(w, http.StatusOK, returnUser{
-		Id:    user.Id,
-		Email: user.Email,
+		Id:            user.Id,
+		Email:         user.Email,
+		Is_chirpy_red: user.Is_chirpy_red,
 	})
 
+}
+
+func (cfg *apiConfig) handlerUpgradeMembership(w http.ResponseWriter, r *http.Request) {
+
+	requestKey, err := auth.GetApiKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "could not verify api key")
+	}
+
+	if requestKey != cfg.polkaApiKey {
+		respondWithError(w, http.StatusUnauthorized, "wrong api key")
+	}
+
+	type parameters struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID int `json:"user_id"`
+		} `json:"data"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't decode parameters")
+		return
+	}
+
+	if params.Event != "user.upgraded" {
+		respondWithJSON(w, http.StatusOK, struct{}{})
+		return
+	}
+
+	user, err := cfg.DB.UpgradeUser(params.Data.UserID)
+	if err != nil {
+		if errors.Is(err, jsonDB.ErrDoesNotExists) {
+			respondWithError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, "failed to upgrade user")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, user)
 }

@@ -17,6 +17,7 @@ type apiConfig struct {
 	fileserverHits int
 	DB             *jsonDB.DB
 	jwtSecret      string
+	polkaApiKey    string
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
@@ -57,6 +58,13 @@ func filterProfanity(message string) string {
 func main() {
 	godotenv.Load()
 	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is not set")
+	}
+	polkaApiKey := os.Getenv("POLKA_API_KEY")
+	if polkaApiKey == "" {
+		log.Fatal("POLKA_API_KEY environment variable is not set")
+	}
 	ex, err := os.Executable()
 	if err != nil {
 		panic(err)
@@ -72,6 +80,7 @@ func main() {
 		fileserverHits: 0,
 		DB:             db,
 		jwtSecret:      jwtSecret,
+		polkaApiKey:    polkaApiKey,
 	}
 
 	router := chi.NewRouter()
@@ -92,6 +101,9 @@ func main() {
 	apiRouter.Post("/login", apiCfg.handlerUsersLogin)
 	apiRouter.Post("/refresh", apiCfg.handlerRefresh)
 	apiRouter.Post("/revoke", apiCfg.handlerRevoke)
+
+	apiRouter.Post("/polka/webhooks", apiCfg.handlerUpgradeMembership)
+
 	router.Mount("/api", apiRouter)
 
 	adminRouter := chi.NewRouter()

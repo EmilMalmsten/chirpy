@@ -19,9 +19,10 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 	}
 
 	user := User{
-		Id:       highestID + 1,
-		Email:    email,
-		Password: password,
+		Id:            highestID + 1,
+		Email:         email,
+		Password:      password,
+		Is_chirpy_red: false,
 	}
 
 	ds.Users[user.Id] = user
@@ -64,6 +65,29 @@ func (db *DB) UpdateUser(userId int, newEmail, newPassword string) (User, error)
 	user.Email = newEmail
 	user.Password = newPassword
 
+	ds.Users[userId] = user
+
+	err = db.writeDB(ds)
+	if err != nil {
+		return User{}, fmt.Errorf("failed to save user in database: %s", err)
+	}
+
+	return user, nil
+}
+
+// Add function to upgrade user membership
+func (db *DB) UpgradeUser(userId int) (User, error) {
+	ds, err := db.loadDB()
+	if err != nil {
+		return User{}, fmt.Errorf("failed to load database: %s", err)
+	}
+
+	user, ok := ds.Users[userId]
+	if !ok {
+		return User{}, ErrDoesNotExists
+	}
+
+	user.Is_chirpy_red = true
 	ds.Users[userId] = user
 
 	err = db.writeDB(ds)

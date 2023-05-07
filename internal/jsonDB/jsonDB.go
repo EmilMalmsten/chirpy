@@ -31,9 +31,10 @@ type Chirp struct {
 }
 
 type User struct {
-	Id       int    `json:"id"`
-	Email    string `json:"email"`
-	Password string
+	Id            int    `json:"id"`
+	Email         string `json:"email"`
+	Password      string
+	Is_chirpy_red bool `json:"is_chirpy_red"`
 }
 
 type Revocation struct {
