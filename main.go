@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -57,11 +58,13 @@ func filterProfanity(message string) string {
 
 func main() {
 	godotenv.Load()
-	jwtSecret := os.Getenv("JWT_SECRET")
+	//jwtSecret := os.Getenv("JWT_SECRET")
+	jwtSecret := "test123"
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET environment variable is not set")
 	}
-	polkaApiKey := os.Getenv("POLKA_API_KEY")
+	//polkaApiKey := os.Getenv("POLKA_API_KEY")
+	polkaApiKey := "123test"
 	if polkaApiKey == "" {
 		log.Fatal("POLKA_API_KEY environment variable is not set")
 	}
@@ -116,6 +119,8 @@ func main() {
 		Addr:    "localhost:8080",
 		Handler: corsMux,
 	}
+
+	fmt.Printf("server running on: %s\n", server.Addr)
 
 	err = server.ListenAndServe()
 	if err != nil {
